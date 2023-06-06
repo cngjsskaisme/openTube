@@ -121,6 +121,12 @@ dist
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+.vscode
+
+*.db
+
+ffmpeg.exe
+ffprobe.exe
 
 # yarn v2
 .yarn/cache
