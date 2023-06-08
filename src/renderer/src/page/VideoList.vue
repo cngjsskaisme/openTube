@@ -1,7 +1,11 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue'
+import { useSettingStore } from '../store/setting'
 import _ from 'lodash'
 import dayjs from '../tools/provideDayjs'
+import videoThumbnailHoverClosure from '../tools/videoList/videoThumbnailHoverClosure'
+
+const settingStore = useSettingStore()
 
 const videoList = ref(null)
 const videoDOMList = ref(null)
@@ -17,76 +21,7 @@ const videoSettings = reactive({
   }
 })
 
-const loadVideo = async () => {
-  videoList.value = null
-
-  videoList.value = _.map(await window.api.video.getList({
-    numberOfPaths: videoSettings.walk.videoListCount,
-    verbose: false,
-    videoLengthThreshold: videoSettings.walk.videoLengthThreshold
-  }), (element) => {
-    element.thumbnail = null
-    element.shouldHideThumbnail = false
-    element.isThumbnailTransitionStarted = false
-    element.isThumbnailTransitionInTheMiddle = false
-    element.videoPlayer = null
-    return element
-  })
-  _.forEach(videoList.value, async (element, index) => {
-    try {
-      videoList.value[index].thumbnail = await window.api.video.getVideoThumbnailBase64({
-        videoPath: element.path,
-        startingPoint: Math.floor(Math.random() * parseFloat(element.length)) || 0
-      })
-    } catch (e) {
-
-    }
-  })
-}
-
-const handleVideoThumbnailHover = (() => {
-  let registeredCallback = []
-  return (videoEntry, index, clearEvent) => {
-    videoList.value[index].isThumbnailTransitionStarted = true
-
-    if (clearEvent) {
-      _.forEach(registeredCallback, (element) => clearTimeout(element))
-      registeredCallback = []
-      videoList.value[index].shouldHideThumbnail = false
-      videoList.value[index].isThumbnailTransitionStarted = false
-      videoList.value[index].isThumbnailTransitionInTheMiddle = false
-      return
-    }
-
-    if (registeredCallback?.length > 0) {
-      _.forEach(registeredCallback, (element) => clearTimeout(element));
-      registeredCallback = [];
-      return
-    }
-
-    registeredCallback.push(setTimeout(() => {
-      videoList.value = _.map(videoList.value, (element, innerIndex) => {
-        element.isThumbnailTransitionStarted = (innerIndex === index)
-
-        /* Thumbnail Transition Middle (Player Appears & Thumbnail Disappears) */
-        registeredCallback.push(setTimeout(() => {
-          element.isThumbnailTransitionInTheMiddle = (innerIndex === index)
-        }, 80))
-
-        /* Thumbnail Hide */
-        registeredCallback.push(setTimeout(() => {
-          element.shouldHideThumbnail = (innerIndex === index)
-          if (videoSettings.player.playRandomPoint) {
-            const currentVideoTag = videoDOMList.value[index].querySelector('video')
-            currentVideoTag.currentTime = Math.floor(Math.random() * element.length)
-          }
-        }, 200))
-
-        return element
-      })
-    }, 500))
-  }
-})()
+const handleVideoThumbnailHover = videoThumbnailHoverClosure({ videoList })
 
 onMounted(async () => {
   await loadVideo()
